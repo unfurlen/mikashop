@@ -24,7 +24,8 @@ window.addEventListener('resize', resize);
 let s = 1;
 function scale(v) { return v * s; }
 function recalcScale() {
-  s = Math.min(canvas.width / 800, canvas.height / 600) * 1.2;
+  s = Math.min(canvas.width / 800, canvas.height / 600) * 1.7;
+  s = Math.min(s, 2.5);
 }
 
 const owl = { x: canvas.width / 2, y: canvas.height / 2 };
