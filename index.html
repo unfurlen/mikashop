@@ -2,6 +2,7 @@
 <html>
 <head>
 <title>Mikashop</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <style>
   body { margin: 0; overflow: hidden; background: #222; }
   canvas { display: block; touch-action: none; }
@@ -19,6 +20,12 @@ function resize() {
 }
 resize();
 window.addEventListener('resize', resize);
+
+let s = 1;
+function scale(v) { return v * s; }
+function recalcScale() {
+  s = Math.min(canvas.width / 800, canvas.height / 600) * 1.2;
+}
 
 const owl = { x: canvas.width / 2, y: canvas.height / 2 };
 const mice = [];
@@ -50,20 +57,27 @@ const stars = Array.from({ length: 60 }, () => ({
 }));
 
 function reposition() {
-  house.x = Math.max(canvas.width - 170, 20);
-  house.y = Math.max(canvas.height - 190, 20);
+  recalcScale();
+  const sw = scale(1), sh = scale(1);
+  house.x = Math.max(canvas.width - scale(170), scale(20));
+  house.y = Math.max(canvas.height - scale(190), scale(20));
+  house.w = scale(150); house.h = scale(130);
   pan.x = house.x + house.w / 2;
-  pan.y = house.y + house.h - 15;
-  shop.y = Math.max(canvas.height - 180, 20);
-  cakeShop.x = Math.min(Math.max(canvas.width / 2 - 75, 200), 900);
-  orchard.x = Math.max(canvas.width / 2 - 100, 10);
-  orchard.y = Math.max(canvas.height - 150, 20);
-  table.x = orchard.x + orchard.w / 2 - 15;
-  table.y = orchard.y + orchard.h - 55;
+  pan.y = house.y + house.h - scale(15);
+  shop.y = Math.max(canvas.height - scale(180), scale(20));
+  shop.w = scale(150); shop.h = scale(140);
+  shop.x = scale(30);
+  cakeShop.x = Math.min(Math.max(canvas.width / 2 - scale(75), scale(200)), 900);
+  cakeShop.w = scale(150); cakeShop.h = scale(140);
+  cakeShop.y = scale(40);
+  orchard.w = scale(200); orchard.h = scale(130);
+  orchard.x = Math.max(canvas.width / 2 - scale(100), scale(10));
+  orchard.y = Math.max(canvas.height - scale(150), scale(20));
+  table.x = orchard.x + orchard.w / 2 - scale(15);
+  table.y = orchard.y + orchard.h - scale(55);
 }
 reposition();
 
-// Cherry trees in orchard
 const trees = Array.from({ length: 5 }, () => ({
   x: 30 + Math.random() * 140,
   y: 20 + Math.random() * 60
@@ -79,8 +93,8 @@ function scatterGrass() {
 scatterGrass();
 
 function btnRect() {
-  const w = 80, h = 36;
-  return { x: canvas.width - w - 10, y: 8, w, h };
+  const w = scale(80), h = scale(36);
+  return { x: canvas.width - w - scale(10), y: scale(8), w, h };
 }
 
 function getPos(e) {
@@ -139,14 +153,13 @@ function update() {
     owl.y += (targetY - owl.y) / d * 3;
   }
 
-  // Scissors logic
-  const atTable = dist(owl, table) < 35;
+  const atTable = dist(owl, table) < scale(35);
   if (atTable && !hasScissors) hasScissors = true;
   if (!inOrchard(owl.x, owl.y) && hasScissors) hasScissors = false;
 
   if (map === 'land') {
     for (const m of mice) {
-      if (dist(owl, m) < 150) {
+      if (dist(owl, m) < scale(150)) {
         const d2 = dist(owl, m);
         m.x += (m.x - owl.x) / d2 * 3;
         m.y += (m.y - owl.y) / d2 * 3;
@@ -159,7 +172,7 @@ function update() {
     }
 
     for (let i = mice.length - 1; i >= 0; i--) {
-      if (dist(owl, mice[i]) < 30) {
+      if (dist(owl, mice[i]) < scale(30)) {
         caughtMice++;
         mice.splice(i, 1);
       }
@@ -168,21 +181,20 @@ function update() {
       if (mice.length === 0 || Math.random() < 0.003) mice.push(spawnMouse());
     }
 
-    const atPan = dist(owl, pan) < 55;
+    const atPan = dist(owl, pan) < scale(55);
     if (atPan && caughtMice > 0) {
       cookTimer += 1 / 60;
       if (cookTimer >= 1) { cookTimer = 0; caughtMice--; inventory++; }
     } else cookTimer = 0;
 
-    // Cherry harvesting
     if (inOrchard(owl.x, owl.y) && hasScissors) {
       cherryTimer += 1 / 60;
       if (cherryTimer >= 0.8) { cherryTimer = 0; cherries++; }
     } else cherryTimer = 0;
 
-    const atShop = dist(owl, { x: shop.x + shop.w / 2, y: shop.y + shop.h / 2 }) < 80;
+    const atShop = dist(owl, { x: shop.x + shop.w / 2, y: shop.y + shop.h / 2 }) < scale(80);
     if (atShop && (inventory > 0 || cakes > 0 || caughtBirds > 0 || cherries > 0) && !customer) {
-      customer = { x: shop.x + shop.w / 2, y: shop.y - 30, progress: 0, timer: 0, buying: null };
+      customer = { x: shop.x + shop.w / 2, y: shop.y - scale(30), progress: 0, timer: 0, buying: null };
       if (inventory > 0) customer.buying = 'mouse';
       else if (caughtBirds > 0) customer.buying = 'bird';
       else if (cherries > 0) customer.buying = 'cherry';
@@ -190,7 +202,7 @@ function update() {
     }
     if (customer) {
       customer.progress += 0.02;
-      customer.y = shop.y - 30 + customer.progress * 40;
+      customer.y = shop.y - scale(30) + customer.progress * scale(40);
       if (customer.progress >= 1) {
         customer.timer += 1 / 60;
         if (customer.timer >= 1) {
@@ -204,13 +216,13 @@ function update() {
       }
     }
 
-    const atCake = dist(owl, { x: cakeShop.x + cakeShop.w / 2, y: cakeShop.y + cakeShop.h / 2 }) < 80;
+    const atCake = dist(owl, { x: cakeShop.x + cakeShop.w / 2, y: cakeShop.y + cakeShop.h / 2 }) < scale(80);
     if (atCake && coins >= 3 && !baker) {
-      baker = { x: cakeShop.x + cakeShop.w / 2, y: cakeShop.y - 30, progress: 0, timer: 0 };
+      baker = { x: cakeShop.x + cakeShop.w / 2, y: cakeShop.y - scale(30), progress: 0, timer: 0 };
     }
     if (baker) {
       baker.progress += 0.02;
-      baker.y = cakeShop.y - 30 + baker.progress * 40;
+      baker.y = cakeShop.y - scale(30) + baker.progress * scale(40);
       if (baker.progress >= 1) {
         baker.timer += 1 / 60;
         if (baker.timer >= 1) {
@@ -229,7 +241,7 @@ function update() {
       b.angle += 0.02 + Math.random() * 0.01;
       b.x += Math.cos(b.angle) * 1.5;
       b.y += Math.sin(b.angle) * 0.8;
-      if (dist(owl, b) < 120) {
+      if (dist(owl, b) < scale(120)) {
         b.x += (b.x - owl.x) * 0.03;
         b.y += (b.y - owl.y) * 0.03;
       }
@@ -237,7 +249,7 @@ function update() {
       b.y = Math.max(0, Math.min(canvas.height, b.y));
     }
     for (let i = birds.length - 1; i >= 0; i--) {
-      if (dist(owl, birds[i]) < 30) {
+      if (dist(owl, birds[i]) < scale(30)) {
         caughtBirds++;
         birds.splice(i, 1);
       }
@@ -253,47 +265,47 @@ function drawHouse(x, y, w, h) {
   ctx.fillRect(x, y, w, h);
   ctx.fillStyle = '#A52A2A';
   ctx.beginPath();
-  ctx.moveTo(x - 15, y);
-  ctx.lineTo(x + w / 2, y - 50);
-  ctx.lineTo(x + w + 15, y);
+  ctx.moveTo(x - scale(15), y);
+  ctx.lineTo(x + w / 2, y - scale(50));
+  ctx.lineTo(x + w + scale(15), y);
   ctx.closePath();
   ctx.fill();
   ctx.fillStyle = '#5C2E0B';
-  ctx.fillRect(x + w / 2 - 18, y + h - 50, 36, 50);
+  ctx.fillRect(x + w / 2 - scale(18), y + h - scale(50), scale(36), scale(50));
   ctx.fillStyle = '#FFD700';
   ctx.beginPath();
-  ctx.arc(x + w / 2 + 10, y + h - 25, 4, 0, Math.PI * 2);
+  ctx.arc(x + w / 2 + scale(10), y + h - scale(25), scale(4), 0, Math.PI * 2);
   ctx.fill();
   ctx.fillStyle = '#87CEEB';
-  ctx.fillRect(x + 15, y + 20, 30, 30);
+  ctx.fillRect(x + scale(15), y + scale(20), scale(30), scale(30));
   ctx.strokeStyle = '#5C2E0B';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(x + 15, y + 20, 30, 30);
+  ctx.lineWidth = scale(2);
+  ctx.strokeRect(x + scale(15), y + scale(20), scale(30), scale(30));
   ctx.beginPath();
-  ctx.moveTo(x + 30, y + 20);
-  ctx.lineTo(x + 30, y + 50);
-  ctx.moveTo(x + 15, y + 35);
-  ctx.lineTo(x + 45, y + 35);
+  ctx.moveTo(x + scale(30), y + scale(20));
+  ctx.lineTo(x + scale(30), y + scale(50));
+  ctx.moveTo(x + scale(15), y + scale(35));
+  ctx.lineTo(x + scale(45), y + scale(35));
   ctx.stroke();
 }
 
 function drawPan(px, py) {
   ctx.fillStyle = '#444';
   ctx.beginPath();
-  ctx.ellipse(px, py, 30, 12, 0, 0, Math.PI * 2);
+  ctx.ellipse(px, py, scale(30), scale(12), 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = '#333';
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.strokeStyle = '#555';
-  ctx.lineWidth = 6;
+  ctx.lineWidth = scale(6);
   ctx.beginPath();
-  ctx.moveTo(px + 30, py - 2);
-  ctx.lineTo(px + 55, py - 8);
+  ctx.moveTo(px + scale(30), py - scale(2));
+  ctx.lineTo(px + scale(55), py - scale(8));
   ctx.stroke();
   if (cookTimer > 0) {
     ctx.fillStyle = '#ff0';
-    ctx.fillRect(px - 20, py - 18, 40 * cookTimer, 4);
+    ctx.fillRect(px - scale(20), py - scale(18), scale(40) * cookTimer, scale(4));
   }
 }
 
@@ -302,9 +314,9 @@ function drawShop(x, y, w, h) {
   ctx.fillRect(x, y, w, h);
   ctx.fillStyle = '#B22222';
   ctx.beginPath();
-  ctx.moveTo(x - 10, y);
-  ctx.lineTo(x + w / 2, y - 30);
-  ctx.lineTo(x + w + 10, y);
+  ctx.moveTo(x - scale(10), y);
+  ctx.lineTo(x + w / 2, y - scale(30));
+  ctx.lineTo(x + w + scale(10), y);
   ctx.closePath();
   ctx.fill();
   ctx.strokeStyle = '#8B0000';
@@ -313,31 +325,31 @@ function drawShop(x, y, w, h) {
     const sx = x + (w / 4) * i;
     ctx.beginPath();
     ctx.moveTo(sx, y);
-    ctx.lineTo(sx, y - 25 - Math.abs(i - 2) * 5);
+    ctx.lineTo(sx, y - scale(25) - Math.abs(i - 2) * scale(5));
     ctx.stroke();
   }
   ctx.fillStyle = '#8B4513';
-  ctx.fillRect(x + 5, y + h - 35, w - 10, 28);
+  ctx.fillRect(x + scale(5), y + h - scale(35), w - scale(10), scale(28));
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 10px sans-serif';
+  ctx.font = 'bold ' + scale(10) + 'px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('🐭1 🐦2 🍒2 🧁4', x + w / 2, y + 15);
+  ctx.fillText('🐭1 🐦2 🍒2 🧁4', x + w / 2, y + scale(15));
   ctx.fillStyle = '#FFF8DC';
-  ctx.font = '12px sans-serif';
-  ctx.fillText("OWL'S SHOP", x + w / 2, y - 40);
+  ctx.font = scale(12) + 'px sans-serif';
+  ctx.fillText("OWL'S SHOP", x + w / 2, y - scale(40));
   if (customer) {
-    ctx.font = '32px serif';
+    ctx.font = scale(32) + 'px serif';
     ctx.fillText('🧑', customer.x, customer.y);
     ctx.fillStyle = '#FFF';
-    ctx.font = '11px sans-serif';
-    ctx.fillText(customer.buying === 'mouse' ? '🐭' : customer.buying === 'bird' ? '🐦' : customer.buying === 'cherry' ? '🍒' : '🧁', customer.x + 22, customer.y - 18);
+    ctx.font = scale(11) + 'px sans-serif';
+    ctx.fillText(customer.buying === 'mouse' ? '🐭' : customer.buying === 'bird' ? '🐦' : customer.buying === 'cherry' ? '🍒' : '🧁', customer.x + scale(22), customer.y - scale(18));
   }
-  ctx.font = '22px serif';
-  ctx.fillText('🪙', x + w / 2, y + h / 2 + 5);
+  ctx.font = scale(22) + 'px serif';
+  ctx.fillText('🪙', x + w / 2, y + h / 2 + scale(5));
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 16px sans-serif';
-  ctx.fillText('x ' + coins, x + w / 2 + 20, y + h / 2 + 6);
+  ctx.font = 'bold ' + scale(16) + 'px sans-serif';
+  ctx.fillText('x ' + coins, x + w / 2 + scale(20), y + h / 2 + scale(6));
 }
 
 function drawCakeShop(x, y, w, h) {
@@ -345,9 +357,9 @@ function drawCakeShop(x, y, w, h) {
   ctx.fillRect(x, y, w, h);
   ctx.fillStyle = '#FF69B4';
   ctx.beginPath();
-  ctx.moveTo(x - 10, y);
-  ctx.lineTo(x + w / 2, y - 30);
-  ctx.lineTo(x + w + 10, y);
+  ctx.moveTo(x - scale(10), y);
+  ctx.lineTo(x + w / 2, y - scale(30));
+  ctx.lineTo(x + w + scale(10), y);
   ctx.closePath();
   ctx.fill();
   ctx.strokeStyle = '#FF1493';
@@ -356,68 +368,57 @@ function drawCakeShop(x, y, w, h) {
     const sx = x + (w / 4) * i;
     ctx.beginPath();
     ctx.moveTo(sx, y);
-    ctx.lineTo(sx, y - 25 - Math.abs(i - 2) * 5);
+    ctx.lineTo(sx, y - scale(25) - Math.abs(i - 2) * scale(5));
     ctx.stroke();
   }
   ctx.fillStyle = '#FFF';
-  ctx.fillRect(x + 10, y + h - 50, w - 20, 18);
+  ctx.fillRect(x + scale(10), y + h - scale(50), w - scale(20), scale(18));
   ctx.strokeStyle = '#CCC';
   ctx.lineWidth = 1;
-  ctx.strokeRect(x + 10, y + h - 50, w - 20, 18);
-  ctx.font = '18px serif';
-  ctx.fillText('🧁', x + w / 2 - 15, y + h - 42);
-  ctx.fillText('🧁', x + w / 2 + 15, y + h - 42);
+  ctx.strokeRect(x + scale(10), y + h - scale(50), w - scale(20), scale(18));
+  ctx.font = scale(18) + 'px serif';
+  ctx.fillText('🧁', x + w / 2 - scale(15), y + h - scale(42));
+  ctx.fillText('🧁', x + w / 2 + scale(15), y + h - scale(42));
   ctx.fillStyle = '#FF69B4';
-  ctx.fillRect(x + 5, y + h - 35, w - 10, 28);
+  ctx.fillRect(x + scale(5), y + h - scale(35), w - scale(10), scale(28));
   ctx.fillStyle = '#FF1493';
-  ctx.font = 'bold 12px sans-serif';
-  ctx.fillText('🧁 3🪙', x + w / 2, y + 15);
+  ctx.font = 'bold ' + scale(12) + 'px sans-serif';
+  ctx.fillText('🧁 3🪙', x + w / 2, y + scale(15));
   ctx.fillStyle = '#FFF';
-  ctx.font = '12px sans-serif';
-  ctx.fillText("CAKE SHOP", x + w / 2, y - 40);
+  ctx.font = scale(12) + 'px sans-serif';
+  ctx.fillText("CAKE SHOP", x + w / 2, y - scale(40));
   if (baker) {
-    ctx.font = '32px serif';
+    ctx.font = scale(32) + 'px serif';
     ctx.fillText('🧑‍🍳', baker.x, baker.y);
   }
-  ctx.font = '22px serif';
-  ctx.fillText('🧁', x + w / 2, y + h / 2 + 5);
+  ctx.font = scale(22) + 'px serif';
+  ctx.fillText('🧁', x + w / 2, y + h / 2 + scale(5));
   ctx.fillStyle = '#FF1493';
-  ctx.font = 'bold 16px sans-serif';
-  ctx.fillText('x ' + cakes, x + w / 2 + 20, y + h / 2 + 6);
+  ctx.font = 'bold ' + scale(16) + 'px sans-serif';
+  ctx.fillText('x ' + cakes, x + w / 2 + scale(20), y + h / 2 + scale(6));
 }
 
 function drawOrchard(x, y, w, h) {
-  // Fence
   ctx.strokeStyle = '#8B4513';
   ctx.lineWidth = 3;
   ctx.strokeRect(x, y, w, h);
-
-  // Ground
   ctx.fillStyle = '#3E7A3E';
   ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
-
-  // Cherry trees
-  ctx.font = '34px serif';
+  ctx.font = scale(34) + 'px serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  for (const t of trees) ctx.fillText('🌸', x + t.x, y + t.y);
-
-  // Table
+  for (const t of trees) ctx.fillText('🌸', x + t.x * s, y + t.y * s);
   ctx.fillStyle = '#A0522D';
-  ctx.fillRect(table.x, table.y, 30, 12);
-  ctx.fillRect(table.x - 2, table.y + 12, 4, 18);
-  ctx.fillRect(table.x + 28, table.y + 12, 4, 18);
-
-  // Scissors (on table or with owl)
+  ctx.fillRect(table.x, table.y, scale(30), scale(12));
+  ctx.fillRect(table.x - scale(2), table.y + scale(12), scale(4), scale(18));
+  ctx.fillRect(table.x + scale(28), table.y + scale(12), scale(4), scale(18));
   if (!hasScissors) {
-    ctx.font = '20px serif';
-    ctx.fillText('✂️', table.x + 15, table.y + 2);
+    ctx.font = scale(20) + 'px serif';
+    ctx.fillText('✂️', table.x + scale(15), table.y + scale(2));
   }
-
-  // Sign
   ctx.fillStyle = '#FFF8DC';
-  ctx.font = '11px sans-serif';
-  ctx.fillText("🍒 ORCHARD", x + w / 2, y - 8);
+  ctx.font = scale(11) + 'px sans-serif';
+  ctx.fillText("🍒 ORCHARD", x + w / 2, y - scale(8));
 }
 
 function drawButton() {
@@ -425,10 +426,10 @@ function drawButton() {
   const label = map === 'land' ? 'Fly 🦅' : 'Land 🏠';
   ctx.fillStyle = map === 'land' ? '#4169E1' : '#8B4513';
   ctx.beginPath();
-  ctx.roundRect(br.x, br.y, br.w, br.h, 8);
+  ctx.roundRect(br.x, br.y, br.w, br.h, scale(8));
   ctx.fill();
   ctx.fillStyle = '#fff';
-  ctx.font = 'bold 14px sans-serif';
+  ctx.font = 'bold ' + scale(14) + 'px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(label, br.x + br.w / 2, br.y + br.h / 2);
@@ -451,15 +452,15 @@ function drawSky() {
     ctx.fill();
   }
 
-  ctx.font = '42px serif';
+  ctx.font = scale(42) + 'px serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   for (const c of clouds) ctx.fillText('☁️', c.x, c.y);
 
-  ctx.font = '50px serif';
-  ctx.fillText('🌙', canvas.width - 80, 70);
+  ctx.font = scale(50) + 'px serif';
+  ctx.fillText('🌙', canvas.width - scale(80), scale(70));
 
-  ctx.font = '28px serif';
+  ctx.font = scale(28) + 'px serif';
   for (const b of birds) ctx.fillText('🐦', b.x, b.y);
 }
 
@@ -467,7 +468,7 @@ function draw() {
   if (map === 'land') {
     ctx.fillStyle = '#4CAF50';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.font = '18px serif';
+    ctx.font = scale(18) + 'px serif';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     for (const g of grass) ctx.fillText('🌿', g.x, g.y);
@@ -478,78 +479,78 @@ function draw() {
     drawHouse(house.x, house.y, house.w, house.h);
     drawPan(pan.x, pan.y);
 
-    ctx.font = '28px serif';
+    ctx.font = scale(28) + 'px serif';
     for (const m of mice) ctx.fillText('🐭', m.x, m.y);
   } else {
     drawSky();
   }
 
   if (caughtMice > 0) {
-    ctx.font = '16px serif';
-    ctx.fillText('🐭', owl.x + 25, owl.y - 15);
+    ctx.font = scale(16) + 'px serif';
+    ctx.fillText('🐭', owl.x + scale(25), owl.y - scale(15));
     ctx.fillStyle = '#fff';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('x' + caughtMice, owl.x + 38, owl.y - 17);
+    ctx.font = scale(12) + 'px sans-serif';
+    ctx.fillText('x' + caughtMice, owl.x + scale(38), owl.y - scale(17));
   }
   if (caughtBirds > 0) {
-    ctx.font = '16px serif';
-    ctx.fillText('🐦', owl.x + 25, owl.y + 22);
+    ctx.font = scale(16) + 'px serif';
+    ctx.fillText('🐦', owl.x + scale(25), owl.y + scale(22));
     ctx.fillStyle = '#fff';
-    ctx.font = '12px sans-serif';
-    ctx.fillText('x' + caughtBirds, owl.x + 38, owl.y + 20);
+    ctx.font = scale(12) + 'px sans-serif';
+    ctx.fillText('x' + caughtBirds, owl.x + scale(38), owl.y + scale(20));
   }
   if (inventory > 0) {
-    ctx.font = '14px serif';
-    ctx.fillText('🎒', owl.x + 28, owl.y + 45);
+    ctx.font = scale(14) + 'px serif';
+    ctx.fillText('🎒', owl.x + scale(28), owl.y + scale(45));
     ctx.fillStyle = '#fff';
-    ctx.font = '11px sans-serif';
-    ctx.fillText('x' + inventory, owl.x + 40, owl.y + 43);
+    ctx.font = scale(11) + 'px sans-serif';
+    ctx.fillText('x' + inventory, owl.x + scale(40), owl.y + scale(43));
   }
   if (cakes > 0) {
-    ctx.font = '16px serif';
-    ctx.fillText('🧁', owl.x - 30, owl.y + 18);
+    ctx.font = scale(16) + 'px serif';
+    ctx.fillText('🧁', owl.x - scale(30), owl.y + scale(18));
     ctx.fillStyle = '#fff';
-    ctx.font = '11px sans-serif';
-    ctx.fillText('x' + cakes, owl.x - 18, owl.y + 16);
+    ctx.font = scale(11) + 'px sans-serif';
+    ctx.fillText('x' + cakes, owl.x - scale(18), owl.y + scale(16));
   }
   if (cherries > 0) {
-    ctx.font = '16px serif';
-    ctx.fillText('🍒', owl.x - 30, owl.y - 20);
+    ctx.font = scale(16) + 'px serif';
+    ctx.fillText('🍒', owl.x - scale(30), owl.y - scale(20));
     ctx.fillStyle = '#fff';
-    ctx.font = '11px sans-serif';
-    ctx.fillText('x' + cherries, owl.x - 18, owl.y - 22);
+    ctx.font = scale(11) + 'px sans-serif';
+    ctx.fillText('x' + cherries, owl.x - scale(18), owl.y - scale(22));
   }
   if (hasScissors) {
-    ctx.font = '20px serif';
-    ctx.fillText('✂️', owl.x - 10, owl.y - 38);
+    ctx.font = scale(20) + 'px serif';
+    ctx.fillText('✂️', owl.x - scale(10), owl.y - scale(38));
   }
 
-  ctx.font = '40px serif';
+  ctx.font = scale(40) + 'px serif';
   ctx.fillText('🦉', owl.x, owl.y);
 
   ctx.fillStyle = '#fff';
-  ctx.font = '14px sans-serif';
+  ctx.font = scale(14) + 'px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText('🐭x' + caughtMice + ' 🎒x' + inventory + ' 🐦x' + caughtBirds + ' 🧁x' + cakes + ' 🍒x' + cherries + ' 🪙' + coins, 12, 24);
+  ctx.fillText('🐭x' + caughtMice + ' 🎒x' + inventory + ' 🐦x' + caughtBirds + ' 🧁x' + cakes + ' 🍒x' + cherries + ' 🪙' + coins, scale(12), scale(24));
 
   ctx.fillStyle = '#fff';
-  ctx.font = '12px sans-serif';
+  ctx.font = scale(12) + 'px sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText('v0.5', canvas.width - 10, 50);
+  ctx.fillText('v0.6', canvas.width - scale(10), scale(50));
 
   drawButton();
 
   if (sellMessage) {
     ctx.fillStyle = '#FFD700';
-    ctx.font = 'bold 22px sans-serif';
+    ctx.font = 'bold ' + scale(22) + 'px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(sellMessage, shop.x + shop.w / 2, shop.y - 55);
+    ctx.fillText(sellMessage, shop.x + shop.w / 2, shop.y - scale(55));
   }
   if (buyMessage) {
     ctx.fillStyle = '#FF69B4';
-    ctx.font = 'bold 22px sans-serif';
+    ctx.font = 'bold ' + scale(22) + 'px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(buyMessage, cakeShop.x + cakeShop.w / 2, cakeShop.y - 55);
+    ctx.fillText(buyMessage, cakeShop.x + cakeShop.w / 2, cakeShop.y - scale(55));
   }
 }
 
