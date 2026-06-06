@@ -199,11 +199,10 @@ function update() {
     owl.y += (targetY - owl.y) / d * 3;
   }
 
-  const atTable = dist(owl, table) < scale(35);
-  if (atTable && !hasScissors) hasScissors = true;
-  if (!inOrchard(owl.x, owl.y) && hasScissors) hasScissors = false;
-
   if (map === 'land') {
+    const atTable = dist(owl, table) < scale(35);
+    if (atTable && !hasScissors) hasScissors = true;
+    if (!inOrchard(owl.x, owl.y) && hasScissors) hasScissors = false;
     for (const m of mice) {
       if (dist(owl, m) < scale(150)) {
         const d2 = dist(owl, m);
@@ -308,6 +307,7 @@ function update() {
       if (aliens.length === 0 || Math.random() < 0.003) aliens.push(spawnAlien());
     }
   }
+  if (map !== 'land') hasScissors = false;
 }
 
 function drawHouse(x, y, w, h) {
