@@ -19,7 +19,7 @@ function resize() {
   canvas.height = window.innerHeight;
 }
 resize();
-window.addEventListener('resize', resize);
+window.addEventListener('resize', () => { resize(); reposition(); });
 
 let s = 1;
 function scale(v) { return v * s; }
@@ -59,7 +59,7 @@ const stars = Array.from({ length: 60 }, () => ({
 
 function reposition() {
   recalcScale();
-  const compact = canvas.width < 500;
+  const compact = window.innerWidth < 600;
 
   if (compact) {
     // Orchard: centered on screen
