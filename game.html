@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Night Zelda</title>
+<style>
+  body { margin: 0; overflow: hidden; background: #222; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+
+function resize() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+const owl = { x: canvas.width / 2, y: canvas.height / 2 };
+const mice = [];
+let caught = 0, inventory = 0, coins = 0, cakes = 0;
+let cookTimer = 0;
+let customer = null, baker = null;
+let targetX = owl.x, targetY = owl.y;
+let sellMessage = '', buyMessage = '';
+
+const house = { x: 0, y: 0, w: 150, h: 130 };
+const pan = { x: 0, y: 0 };
+const shop = { x: 30, y: 0, w: 150, h: 140 };
+const cakeShop = { x: 0, y: 40, w: 150, h: 140 };
+
+function reposition() {
+  house.x = Math.max(canvas.width - 170, 20);
+  house.y = Math.max(canvas.height - 190, 20);
+  pan.x = house.x + house.w / 2;
+  pan.y = house.y + house.h - 15;
+  shop.y = Math.max(canvas.height - 180, 20);
+  cakeShop.x = Math.min(Math.max(canvas.width / 2 - 75, 200), 900);
+}
+reposition();
+
+let grass = [];
+function scatterGrass() {
+  grass = Array.from({ length: 300 }, () => ({
+    x: Math.random() * canvas.width,
+    y: Math.random() * canvas.height,
+  }));
+}
+scatterGrass();
+
+canvas.addEventListener('mousemove', e => {
+  targetX = e.clientX;
+  targetY = e.clientY;
+});
+
+function dist(a, b) {
+  return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function spawnMouse() {
+  let m;
+  let tries = 0;
+  do {
+    m = { x: 50 + Math.random() * (canvas.width - 100), y: 50 + Math.random() * (canvas.height - 100) };
+    tries++;
+  } while ((dist(m, house) < 100 || dist(m, cakeShop) < 100) && tries < 30);
+  return m;
+}
+
+for (let i = 0; i < 5; i++) mice.push(spawnMouse());
+
+function update() {
+  const d = dist(owl, { x: targetX, y: targetY });
+  if (d > 5) {
+    owl.x += (targetX - owl.x) / d * 3;
+    owl.y += (targetY - owl.y) / d * 3;
+  }
+
+  for (const m of mice) {
+    if (dist(owl, m) < 150) {
+      const d2 = dist(owl, m);
+      m.x += (m.x - owl.x) / d2 * 3;
+      m.y += (m.y - owl.y) / d2 * 3;
+    } else {
+      m.x += (Math.random() - 0.5) * 2;
+      m.y += (Math.random() - 0.5) * 2;
+    }
+    m.x = Math.max(0, Math.min(canvas.width, m.x));
+    m.y = Math.max(0, Math.min(canvas.height, m.y));
+  }
+
+  for (let i = mice.length - 1; i >= 0; i--) {
+    if (dist(owl, mice[i]) < 30) {
+      caught++;
+      mice.splice(i, 1);
+    }
+  }
+  if (mice.length < 5) {
+    if (mice.length === 0 || Math.random() < 0.003) mice.push(spawnMouse());
+  }
+
+  const atPan = dist(owl, pan) < 55;
+  if (atPan && caught > 0) {
+    cookTimer += 1 / 60;
+    if (cookTimer >= 1) { cookTimer = 0; caught--; inventory++; }
+  } else cookTimer = 0;
+
+  // Owl shop: sells mice (inventory) and cakes
+  const atShop = dist(owl, { x: shop.x + shop.w / 2, y: shop.y + shop.h / 2 }) < 80;
+  if (atShop && (inventory > 0 || cakes > 0) && !customer) {
+    customer = { x: shop.x + shop.w / 2, y: shop.y - 30, progress: 0, timer: 0, buying: null };
+    if (inventory > 0) customer.buying = 'mouse';
+    else customer.buying = 'cake';
+  }
+  if (customer) {
+    customer.progress += 0.02;
+    customer.y = shop.y - 30 + customer.progress * 40;
+    if (customer.progress >= 1) {
+      customer.timer += 1 / 60;
+      if (customer.timer >= 1) {
+        if (customer.buying === 'mouse') {
+          inventory--; coins++;
+          sellMessage = '+1 🪙';
+        } else {
+          cakes--; coins += 4;
+          sellMessage = '+4 🪙';
+        }
+        setTimeout(() => sellMessage = '', 1200);
+        customer = null;
+      }
+    }
+  }
+
+  // Cake shop: buy cake for 3 coins
+  const atCake = dist(owl, { x: cakeShop.x + cakeShop.w / 2, y: cakeShop.y + cakeShop.h / 2 }) < 80;
+  if (atCake && coins >= 3 && !baker) {
+    baker = { x: cakeShop.x + cakeShop.w / 2, y: cakeShop.y - 30, progress: 0, timer: 0 };
+  }
+  if (baker) {
+    baker.progress += 0.02;
+    baker.y = cakeShop.y - 30 + baker.progress * 40;
+    if (baker.progress >= 1) {
+      baker.timer += 1 / 60;
+      if (baker.timer >= 1) {
+        coins -= 3; cakes++; buyMessage = '+1 🧁';
+        setTimeout(() => buyMessage = '', 1200);
+        baker = null;
+      }
+    }
+  }
+}
+
+function drawHouse(x, y, w, h) {
+  ctx.fillStyle = '#8B4513';
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = '#A52A2A';
+  ctx.beginPath();
+  ctx.moveTo(x - 15, y);
+  ctx.lineTo(x + w / 2, y - 50);
+  ctx.lineTo(x + w + 15, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#5C2E0B';
+  ctx.fillRect(x + w / 2 - 18, y + h - 50, 36, 50);
+  ctx.fillStyle = '#FFD700';
+  ctx.beginPath();
+  ctx.arc(x + w / 2 + 10, y + h - 25, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#87CEEB';
+  ctx.fillRect(x + 15, y + 20, 30, 30);
+  ctx.strokeStyle = '#5C2E0B';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(x + 15, y + 20, 30, 30);
+  ctx.beginPath();
+  ctx.moveTo(x + 30, y + 20);
+  ctx.lineTo(x + 30, y + 50);
+  ctx.moveTo(x + 15, y + 35);
+  ctx.lineTo(x + 45, y + 35);
+  ctx.stroke();
+}
+
+function drawPan(px, py) {
+  ctx.fillStyle = '#444';
+  ctx.beginPath();
+  ctx.ellipse(px, py, 30, 12, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#333';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.strokeStyle = '#555';
+  ctx.lineWidth = 6;
+  ctx.beginPath();
+  ctx.moveTo(px + 30, py - 2);
+  ctx.lineTo(px + 55, py - 8);
+  ctx.stroke();
+  if (cookTimer > 0) {
+    ctx.fillStyle = '#ff0';
+    ctx.fillRect(px - 20, py - 18, 40 * cookTimer, 4);
+  }
+}
+
+function drawShop(x, y, w, h) {
+  ctx.fillStyle = '#D2691E';
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = '#B22222';
+  ctx.beginPath();
+  ctx.moveTo(x - 10, y);
+  ctx.lineTo(x + w / 2, y - 30);
+  ctx.lineTo(x + w + 10, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#8B0000';
+  ctx.lineWidth = 2;
+  for (let i = 1; i < 4; i++) {
+    const sx = x + (w / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(sx, y);
+    ctx.lineTo(sx, y - 25 - Math.abs(i - 2) * 5);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#8B4513';
+  ctx.fillRect(x + 5, y + h - 35, w - 10, 28);
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('🐭🪙  🧁4🪙', x + w / 2, y + 15);
+  ctx.fillStyle = '#FFF8DC';
+  ctx.font = '12px sans-serif';
+  ctx.fillText("OWL'S SHOP", x + w / 2, y - 40);
+  if (customer) {
+    ctx.font = '32px serif';
+    ctx.fillText('🧑', customer.x, customer.y);
+    ctx.fillStyle = '#FFF';
+    ctx.font = '11px sans-serif';
+    ctx.fillText(customer.buying === 'mouse' ? '🐭' : '🧁', customer.x + 22, customer.y - 18);
+  }
+  ctx.font = '22px serif';
+  ctx.fillText('🪙', x + w / 2, y + h / 2 + 5);
+  ctx.fillStyle = '#FFD700';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.fillText('x ' + coins, x + w / 2 + 20, y + h / 2 + 6);
+}
+
+function drawCakeShop(x, y, w, h) {
+  ctx.fillStyle = '#FFB6C1';
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = '#FF69B4';
+  ctx.beginPath();
+  ctx.moveTo(x - 10, y);
+  ctx.lineTo(x + w / 2, y - 30);
+  ctx.lineTo(x + w + 10, y);
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = '#FF1493';
+  ctx.lineWidth = 2;
+  for (let i = 1; i < 4; i++) {
+    const sx = x + (w / 4) * i;
+    ctx.beginPath();
+    ctx.moveTo(sx, y);
+    ctx.lineTo(sx, y - 25 - Math.abs(i - 2) * 5);
+    ctx.stroke();
+  }
+  ctx.fillStyle = '#FFF';
+  ctx.fillRect(x + 10, y + h - 50, w - 20, 18);
+  ctx.strokeStyle = '#CCC';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x + 10, y + h - 50, w - 20, 18);
+  ctx.font = '18px serif';
+  ctx.fillText('🧁', x + w / 2 - 15, y + h - 42);
+  ctx.fillText('🧁', x + w / 2 + 15, y + h - 42);
+  ctx.fillStyle = '#FF69B4';
+  ctx.fillRect(x + 5, y + h - 35, w - 10, 28);
+  ctx.fillStyle = '#FF1493';
+  ctx.font = 'bold 12px sans-serif';
+  ctx.fillText('🧁 3🪙', x + w / 2, y + 15);
+  ctx.fillStyle = '#FFF';
+  ctx.font = '12px sans-serif';
+  ctx.fillText("CAKE SHOP", x + w / 2, y - 40);
+  if (baker) {
+    ctx.font = '32px serif';
+    ctx.fillText('🧑‍🍳', baker.x, baker.y);
+  }
+  ctx.font = '22px serif';
+  ctx.fillText('🧁', x + w / 2, y + h / 2 + 5);
+  ctx.fillStyle = '#FF1493';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.fillText('x ' + cakes, x + w / 2 + 20, y + h / 2 + 6);
+}
+
+function draw() {
+  ctx.fillStyle = '#4CAF50';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.font = '18px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const g of grass) ctx.fillText('🌿', g.x, g.y);
+
+  drawCakeShop(cakeShop.x, cakeShop.y, cakeShop.w, cakeShop.h);
+  drawShop(shop.x, shop.y, shop.w, shop.h);
+  drawHouse(house.x, house.y, house.w, house.h);
+  drawPan(pan.x, pan.y);
+
+  if (caught > 0) {
+    ctx.font = '16px serif';
+    ctx.fillText('🐭', owl.x + 25, owl.y - 15);
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('x' + caught, owl.x + 38, owl.y - 17);
+  }
+  if (inventory > 0) {
+    ctx.font = '14px serif';
+    ctx.fillText('🎒', owl.x + 28, owl.y + 18);
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('x' + inventory, owl.x + 40, owl.y + 16);
+  }
+  if (cakes > 0) {
+    ctx.font = '16px serif';
+    ctx.fillText('🧁', owl.x - 30, owl.y + 18);
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('x' + cakes, owl.x - 18, owl.y + 16);
+  }
+
+  ctx.font = '28px serif';
+  for (const m of mice) ctx.fillText('🐭', m.x, m.y);
+
+  ctx.font = '40px serif';
+  ctx.fillText('🦉', owl.x, owl.y);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '16px sans-serif';
+  ctx.textAlign = 'left';
+  ctx.fillText('🐭 x ' + caught + '  🎒 x ' + inventory + '  🧁 x ' + cakes + '  🪙 ' + coins, 12, 24);
+
+  if (sellMessage) {
+    ctx.fillStyle = '#FFD700';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(sellMessage, shop.x + shop.w / 2, shop.y - 55);
+  }
+  if (buyMessage) {
+    ctx.fillStyle = '#FF69B4';
+    ctx.font = 'bold 22px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(buyMessage, cakeShop.x + cakeShop.w / 2, cakeShop.y - 55);
+  }
+}
+
+function loop() {
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+</body>
+</html>
