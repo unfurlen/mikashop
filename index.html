@@ -22,7 +22,8 @@ window.addEventListener('resize', resize);
 
 const owl = { x: canvas.width / 2, y: canvas.height / 2 };
 const mice = [];
-let caught = 0, inventory = 0, coins = 0, cakes = 0;
+const birds = [];
+let caughtMice = 0, caughtBirds = 0, inventory = 0, coins = 0, cakes = 0;
 let cookTimer = 0;
 let customer = null, baker = null;
 let targetX = owl.x, targetY = owl.y;
@@ -104,7 +105,16 @@ function spawnMouse() {
   return m;
 }
 
+function spawnBird() {
+  return {
+    x: 50 + Math.random() * (canvas.width - 100),
+    y: 50 + Math.random() * (canvas.height - 100),
+    angle: Math.random() * Math.PI * 2
+  };
+}
+
 for (let i = 0; i < 5; i++) mice.push(spawnMouse());
+for (let i = 0; i < 4; i++) birds.push(spawnBird());
 
 function update() {
   const d = dist(owl, { x: targetX, y: targetY });
@@ -129,7 +139,7 @@ function update() {
 
     for (let i = mice.length - 1; i >= 0; i--) {
       if (dist(owl, mice[i]) < 30) {
-        caught++;
+        caughtMice++;
         mice.splice(i, 1);
       }
     }
@@ -138,15 +148,16 @@ function update() {
     }
 
     const atPan = dist(owl, pan) < 55;
-    if (atPan && caught > 0) {
+    if (atPan && caughtMice > 0) {
       cookTimer += 1 / 60;
-      if (cookTimer >= 1) { cookTimer = 0; caught--; inventory++; }
+      if (cookTimer >= 1) { cookTimer = 0; caughtMice--; inventory++; }
     } else cookTimer = 0;
 
     const atShop = dist(owl, { x: shop.x + shop.w / 2, y: shop.y + shop.h / 2 }) < 80;
-    if (atShop && (inventory > 0 || cakes > 0) && !customer) {
+    if (atShop && (inventory > 0 || cakes > 0 || caughtBirds > 0) && !customer) {
       customer = { x: shop.x + shop.w / 2, y: shop.y - 30, progress: 0, timer: 0, buying: null };
       if (inventory > 0) customer.buying = 'mouse';
+      else if (caughtBirds > 0) customer.buying = 'bird';
       else customer.buying = 'cake';
     }
     if (customer) {
@@ -157,11 +168,14 @@ function update() {
         if (customer.timer >= 1) {
           if (customer.buying === 'mouse') {
             inventory--; coins++;
-            sellMessage = '+1 🪙';
+          } else if (customer.buying === 'bird') {
+            caughtBirds--; coins += 2;
+            sellMessage = '+2 🪙';
           } else {
             cakes--; coins += 4;
             sellMessage = '+4 🪙';
           }
+          if (customer.buying === 'mouse') sellMessage = '+1 🪙';
           setTimeout(() => sellMessage = '', 1200);
           customer = null;
         }
@@ -185,10 +199,34 @@ function update() {
       }
     }
   } else {
-    // Sky update: clouds drift
+    // Sky: clouds drift
     for (const c of clouds) {
       c.x += c.speed;
       if (c.x > canvas.width + 100) c.x = -150;
+    }
+
+    // Birds fly around
+    for (const b of birds) {
+      b.angle += 0.02 + Math.random() * 0.01;
+      b.x += Math.cos(b.angle) * 1.5;
+      b.y += Math.sin(b.angle) * 0.8;
+      // Avoid owl
+      if (dist(owl, b) < 120) {
+        b.x += (b.x - owl.x) * 0.03;
+        b.y += (b.y - owl.y) * 0.03;
+      }
+      b.x = Math.max(0, Math.min(canvas.width, b.x));
+      b.y = Math.max(0, Math.min(canvas.height, b.y));
+    }
+
+    for (let i = birds.length - 1; i >= 0; i--) {
+      if (dist(owl, birds[i]) < 30) {
+        caughtBirds++;
+        birds.splice(i, 1);
+      }
+    }
+    if (birds.length < 4) {
+      if (birds.length === 0 || Math.random() < 0.003) birds.push(spawnBird());
     }
   }
 }
@@ -264,10 +302,10 @@ function drawShop(x, y, w, h) {
   ctx.fillStyle = '#8B4513';
   ctx.fillRect(x + 5, y + h - 35, w - 10, 28);
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 12px sans-serif';
+  ctx.font = 'bold 11px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('🐭🪙  🧁4🪙', x + w / 2, y + 15);
+  ctx.fillText('🐭1🪙 🐦2🪙 🧁4🪙', x + w / 2, y + 15);
   ctx.fillStyle = '#FFF8DC';
   ctx.font = '12px sans-serif';
   ctx.fillText("OWL'S SHOP", x + w / 2, y - 40);
@@ -276,7 +314,7 @@ function drawShop(x, y, w, h) {
     ctx.fillText('🧑', customer.x, customer.y);
     ctx.fillStyle = '#FFF';
     ctx.font = '11px sans-serif';
-    ctx.fillText(customer.buying === 'mouse' ? '🐭' : '🧁', customer.x + 22, customer.y - 18);
+    ctx.fillText(customer.buying === 'mouse' ? '🐭' : customer.buying === 'bird' ? '🐦' : '🧁', customer.x + 22, customer.y - 18);
   }
   ctx.font = '22px serif';
   ctx.fillText('🪙', x + w / 2, y + h / 2 + 5);
@@ -346,7 +384,6 @@ function drawButton() {
 }
 
 function drawSky() {
-  // Gradient sky
   const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
   grad.addColorStop(0, '#0B0B2B');
   grad.addColorStop(0.4, '#1B1B4B');
@@ -355,7 +392,6 @@ function drawSky() {
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Stars
   ctx.fillStyle = '#FFF';
   for (const s of stars) {
     const sx = ((s.x + performance.now() * 0.005) % (canvas.width + 50)) - 25;
@@ -364,17 +400,17 @@ function drawSky() {
     ctx.fill();
   }
 
-  // Clouds
   ctx.font = '42px serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  for (const c of clouds) {
-    ctx.fillText('☁️', c.x, c.y);
-  }
+  for (const c of clouds) ctx.fillText('☁️', c.x, c.y);
 
-  // Moon
   ctx.font = '50px serif';
   ctx.fillText('🌙', canvas.width - 80, 70);
+
+  // Birds
+  ctx.font = '28px serif';
+  for (const b of birds) ctx.fillText('🐦', b.x, b.y);
 }
 
 function draw() {
@@ -390,24 +426,38 @@ function draw() {
     drawShop(shop.x, shop.y, shop.w, shop.h);
     drawHouse(house.x, house.y, house.w, house.h);
     drawPan(pan.x, pan.y);
+
+    ctx.font = '28px serif';
+    for (const m of mice) ctx.fillText('🐭', m.x, m.y);
   } else {
     drawSky();
   }
 
-  if (caught > 0) {
+  // Caught mice above owl
+  if (caughtMice > 0) {
     ctx.font = '16px serif';
     ctx.fillText('🐭', owl.x + 25, owl.y - 15);
     ctx.fillStyle = '#fff';
     ctx.font = '12px sans-serif';
-    ctx.fillText('x' + caught, owl.x + 38, owl.y - 17);
+    ctx.fillText('x' + caughtMice, owl.x + 38, owl.y - 17);
   }
+  // Caught birds above owl
+  if (caughtBirds > 0) {
+    ctx.font = '16px serif';
+    ctx.fillText('🐦', owl.x + 25, owl.y + 22);
+    ctx.fillStyle = '#fff';
+    ctx.font = '12px sans-serif';
+    ctx.fillText('x' + caughtBirds, owl.x + 38, owl.y + 20);
+  }
+  // Inventory badge
   if (inventory > 0) {
     ctx.font = '14px serif';
-    ctx.fillText('🎒', owl.x + 28, owl.y + 18);
+    ctx.fillText('🎒', owl.x + 28, owl.y + 45);
     ctx.fillStyle = '#fff';
     ctx.font = '11px sans-serif';
-    ctx.fillText('x' + inventory, owl.x + 40, owl.y + 16);
+    ctx.fillText('x' + inventory, owl.x + 40, owl.y + 43);
   }
+  // Cakes
   if (cakes > 0) {
     ctx.font = '16px serif';
     ctx.fillText('🧁', owl.x - 30, owl.y + 18);
@@ -416,26 +466,18 @@ function draw() {
     ctx.fillText('x' + cakes, owl.x - 18, owl.y + 16);
   }
 
-  ctx.font = '28px serif';
-  if (map === 'land') {
-    for (const m of mice) ctx.fillText('🐭', m.x, m.y);
-  } else {
-    ctx.fillText('🦇', 100 + Math.sin(performance.now() * 0.001) * 80, 200 + Math.sin(performance.now() * 0.0015) * 60);
-    ctx.fillText('🦇', canvas.width - 120 + Math.sin(performance.now() * 0.0012) * 70, 150 + Math.cos(performance.now() * 0.001) * 50);
-  }
-
   ctx.font = '40px serif';
   ctx.fillText('🦉', owl.x, owl.y);
 
   ctx.fillStyle = '#fff';
-  ctx.font = '16px sans-serif';
+  ctx.font = '15px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText('🐭 x ' + caught + '  🎒 x ' + inventory + '  🧁 x ' + cakes + '  🪙 ' + coins, 12, 24);
+  ctx.fillText('🐭x' + caughtMice + ' 🎒x' + inventory + ' 🐦x' + caughtBirds + ' 🧁x' + cakes + ' 🪙' + coins, 12, 24);
 
   ctx.fillStyle = '#fff';
   ctx.font = '12px sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText('v0.3', canvas.width - 10, 50);
+  ctx.fillText('v0.4', canvas.width - 10, 50);
 
   drawButton();
 
