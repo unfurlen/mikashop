@@ -23,29 +23,20 @@ window.addEventListener('resize', resize);
 const owl = { x: canvas.width / 2, y: canvas.height / 2 };
 const mice = [];
 const birds = [];
-let caughtMice = 0, caughtBirds = 0, inventory = 0, coins = 0, cakes = 0;
-let cookTimer = 0;
+let caughtMice = 0, caughtBirds = 0, inventory = 0, coins = 0, cakes = 0, cherries = 0;
+let cookTimer = 0, cherryTimer = 0;
 let customer = null, baker = null;
 let targetX = owl.x, targetY = owl.y;
 let sellMessage = '', buyMessage = '';
 let map = 'land';
+let hasScissors = false;
 
 const house = { x: 0, y: 0, w: 150, h: 130 };
 const pan = { x: 0, y: 0 };
 const shop = { x: 30, y: 0, w: 150, h: 140 };
 const cakeShop = { x: 0, y: 40, w: 150, h: 140 };
-
-const clouds = Array.from({ length: 12 }, () => ({
-  x: Math.random() * 2000 - 200,
-  y: 50 + Math.random() * (600 - 100),
-  speed: 0.2 + Math.random() * 0.4,
-  size: 20 + Math.random() * 25
-}));
-const stars = Array.from({ length: 60 }, () => ({
-  x: Math.random() * 2000,
-  y: Math.random() * 600,
-  size: 1 + Math.random() * 2
-}));
+const orchard = { x: 0, y: 0, w: 200, h: 130 };
+const table = { x: 0, y: 0 };
 
 function reposition() {
   house.x = Math.max(canvas.width - 170, 20);
@@ -54,8 +45,18 @@ function reposition() {
   pan.y = house.y + house.h - 15;
   shop.y = Math.max(canvas.height - 180, 20);
   cakeShop.x = Math.min(Math.max(canvas.width / 2 - 75, 200), 900);
+  orchard.x = Math.max(canvas.width / 2 - 100, 10);
+  orchard.y = Math.max(canvas.height - 150, 20);
+  table.x = orchard.x + orchard.w / 2 - 15;
+  table.y = orchard.y + orchard.h - 55;
 }
 reposition();
+
+// Cherry trees in orchard
+const trees = Array.from({ length: 5 }, () => ({
+  x: 30 + Math.random() * 140,
+  y: 20 + Math.random() * 60
+}));
 
 let grass = [];
 function scatterGrass() {
@@ -101,7 +102,7 @@ function spawnMouse() {
   do {
     m = { x: 50 + Math.random() * (canvas.width - 100), y: 50 + Math.random() * (canvas.height - 100) };
     tries++;
-  } while ((dist(m, house) < 100 || dist(m, cakeShop) < 100) && tries < 30);
+  } while ((dist(m, house) < 100 || dist(m, cakeShop) < 100 || dist(m, orchard) < 100) && tries < 30);
   return m;
 }
 
@@ -116,12 +117,21 @@ function spawnBird() {
 for (let i = 0; i < 5; i++) mice.push(spawnMouse());
 for (let i = 0; i < 4; i++) birds.push(spawnBird());
 
+function inOrchard(x, y) {
+  return x >= orchard.x && x <= orchard.x + orchard.w && y >= orchard.y && y <= orchard.y + orchard.h;
+}
+
 function update() {
   const d = dist(owl, { x: targetX, y: targetY });
   if (d > 5) {
     owl.x += (targetX - owl.x) / d * 3;
     owl.y += (targetY - owl.y) / d * 3;
   }
+
+  // Scissors logic
+  const atTable = dist(owl, table) < 35;
+  if (atTable && !hasScissors) hasScissors = true;
+  if (!inOrchard(owl.x, owl.y) && hasScissors) hasScissors = false;
 
   if (map === 'land') {
     for (const m of mice) {
@@ -153,11 +163,18 @@ function update() {
       if (cookTimer >= 1) { cookTimer = 0; caughtMice--; inventory++; }
     } else cookTimer = 0;
 
+    // Cherry harvesting
+    if (inOrchard(owl.x, owl.y) && hasScissors) {
+      cherryTimer += 1 / 60;
+      if (cherryTimer >= 0.8) { cherryTimer = 0; cherries++; }
+    } else cherryTimer = 0;
+
     const atShop = dist(owl, { x: shop.x + shop.w / 2, y: shop.y + shop.h / 2 }) < 80;
-    if (atShop && (inventory > 0 || cakes > 0 || caughtBirds > 0) && !customer) {
+    if (atShop && (inventory > 0 || cakes > 0 || caughtBirds > 0 || cherries > 0) && !customer) {
       customer = { x: shop.x + shop.w / 2, y: shop.y - 30, progress: 0, timer: 0, buying: null };
       if (inventory > 0) customer.buying = 'mouse';
       else if (caughtBirds > 0) customer.buying = 'bird';
+      else if (cherries > 0) customer.buying = 'cherry';
       else customer.buying = 'cake';
     }
     if (customer) {
@@ -166,16 +183,10 @@ function update() {
       if (customer.progress >= 1) {
         customer.timer += 1 / 60;
         if (customer.timer >= 1) {
-          if (customer.buying === 'mouse') {
-            inventory--; coins++;
-          } else if (customer.buying === 'bird') {
-            caughtBirds--; coins += 2;
-            sellMessage = '+2 🪙';
-          } else {
-            cakes--; coins += 4;
-            sellMessage = '+4 🪙';
-          }
-          if (customer.buying === 'mouse') sellMessage = '+1 🪙';
+          if (customer.buying === 'mouse') { inventory--; coins++; sellMessage = '+1 🪙'; }
+          else if (customer.buying === 'bird') { caughtBirds--; coins += 2; sellMessage = '+2 🪙'; }
+          else if (customer.buying === 'cherry') { cherries--; coins += 2; sellMessage = '+2 🪙'; }
+          else { cakes--; coins += 4; sellMessage = '+4 🪙'; }
           setTimeout(() => sellMessage = '', 1200);
           customer = null;
         }
@@ -199,18 +210,14 @@ function update() {
       }
     }
   } else {
-    // Sky: clouds drift
     for (const c of clouds) {
       c.x += c.speed;
       if (c.x > canvas.width + 100) c.x = -150;
     }
-
-    // Birds fly around
     for (const b of birds) {
       b.angle += 0.02 + Math.random() * 0.01;
       b.x += Math.cos(b.angle) * 1.5;
       b.y += Math.sin(b.angle) * 0.8;
-      // Avoid owl
       if (dist(owl, b) < 120) {
         b.x += (b.x - owl.x) * 0.03;
         b.y += (b.y - owl.y) * 0.03;
@@ -218,7 +225,6 @@ function update() {
       b.x = Math.max(0, Math.min(canvas.width, b.x));
       b.y = Math.max(0, Math.min(canvas.height, b.y));
     }
-
     for (let i = birds.length - 1; i >= 0; i--) {
       if (dist(owl, birds[i]) < 30) {
         caughtBirds++;
@@ -302,10 +308,10 @@ function drawShop(x, y, w, h) {
   ctx.fillStyle = '#8B4513';
   ctx.fillRect(x + 5, y + h - 35, w - 10, 28);
   ctx.fillStyle = '#FFD700';
-  ctx.font = 'bold 11px sans-serif';
+  ctx.font = 'bold 10px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('🐭1🪙 🐦2🪙 🧁4🪙', x + w / 2, y + 15);
+  ctx.fillText('🐭1 🐦2 🍒2 🧁4', x + w / 2, y + 15);
   ctx.fillStyle = '#FFF8DC';
   ctx.font = '12px sans-serif';
   ctx.fillText("OWL'S SHOP", x + w / 2, y - 40);
@@ -314,7 +320,7 @@ function drawShop(x, y, w, h) {
     ctx.fillText('🧑', customer.x, customer.y);
     ctx.fillStyle = '#FFF';
     ctx.font = '11px sans-serif';
-    ctx.fillText(customer.buying === 'mouse' ? '🐭' : customer.buying === 'bird' ? '🐦' : '🧁', customer.x + 22, customer.y - 18);
+    ctx.fillText(customer.buying === 'mouse' ? '🐭' : customer.buying === 'bird' ? '🐦' : customer.buying === 'cherry' ? '🍒' : '🧁', customer.x + 22, customer.y - 18);
   }
   ctx.font = '22px serif';
   ctx.fillText('🪙', x + w / 2, y + h / 2 + 5);
@@ -369,6 +375,40 @@ function drawCakeShop(x, y, w, h) {
   ctx.fillText('x ' + cakes, x + w / 2 + 20, y + h / 2 + 6);
 }
 
+function drawOrchard(x, y, w, h) {
+  // Fence
+  ctx.strokeStyle = '#8B4513';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x, y, w, h);
+
+  // Ground
+  ctx.fillStyle = '#3E7A3E';
+  ctx.fillRect(x + 2, y + 2, w - 4, h - 4);
+
+  // Cherry trees
+  ctx.font = '34px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const t of trees) ctx.fillText('🌸', x + t.x, y + t.y);
+
+  // Table
+  ctx.fillStyle = '#A0522D';
+  ctx.fillRect(table.x, table.y, 30, 12);
+  ctx.fillRect(table.x - 2, table.y + 12, 4, 18);
+  ctx.fillRect(table.x + 28, table.y + 12, 4, 18);
+
+  // Scissors (on table or with owl)
+  if (!hasScissors) {
+    ctx.font = '20px serif';
+    ctx.fillText('✂️', table.x + 15, table.y + 2);
+  }
+
+  // Sign
+  ctx.fillStyle = '#FFF8DC';
+  ctx.font = '11px sans-serif';
+  ctx.fillText("🍒 ORCHARD", x + w / 2, y - 8);
+}
+
 function drawButton() {
   const br = btnRect();
   const label = map === 'land' ? 'Fly 🦅' : 'Land 🏠';
@@ -408,7 +448,6 @@ function drawSky() {
   ctx.font = '50px serif';
   ctx.fillText('🌙', canvas.width - 80, 70);
 
-  // Birds
   ctx.font = '28px serif';
   for (const b of birds) ctx.fillText('🐦', b.x, b.y);
 }
@@ -424,6 +463,7 @@ function draw() {
 
     drawCakeShop(cakeShop.x, cakeShop.y, cakeShop.w, cakeShop.h);
     drawShop(shop.x, shop.y, shop.w, shop.h);
+    drawOrchard(orchard.x, orchard.y, orchard.w, orchard.h);
     drawHouse(house.x, house.y, house.w, house.h);
     drawPan(pan.x, pan.y);
 
@@ -433,7 +473,6 @@ function draw() {
     drawSky();
   }
 
-  // Caught mice above owl
   if (caughtMice > 0) {
     ctx.font = '16px serif';
     ctx.fillText('🐭', owl.x + 25, owl.y - 15);
@@ -441,7 +480,6 @@ function draw() {
     ctx.font = '12px sans-serif';
     ctx.fillText('x' + caughtMice, owl.x + 38, owl.y - 17);
   }
-  // Caught birds above owl
   if (caughtBirds > 0) {
     ctx.font = '16px serif';
     ctx.fillText('🐦', owl.x + 25, owl.y + 22);
@@ -449,7 +487,6 @@ function draw() {
     ctx.font = '12px sans-serif';
     ctx.fillText('x' + caughtBirds, owl.x + 38, owl.y + 20);
   }
-  // Inventory badge
   if (inventory > 0) {
     ctx.font = '14px serif';
     ctx.fillText('🎒', owl.x + 28, owl.y + 45);
@@ -457,7 +494,6 @@ function draw() {
     ctx.font = '11px sans-serif';
     ctx.fillText('x' + inventory, owl.x + 40, owl.y + 43);
   }
-  // Cakes
   if (cakes > 0) {
     ctx.font = '16px serif';
     ctx.fillText('🧁', owl.x - 30, owl.y + 18);
@@ -465,19 +501,30 @@ function draw() {
     ctx.font = '11px sans-serif';
     ctx.fillText('x' + cakes, owl.x - 18, owl.y + 16);
   }
+  if (cherries > 0) {
+    ctx.font = '16px serif';
+    ctx.fillText('🍒', owl.x - 30, owl.y - 20);
+    ctx.fillStyle = '#fff';
+    ctx.font = '11px sans-serif';
+    ctx.fillText('x' + cherries, owl.x - 18, owl.y - 22);
+  }
+  if (hasScissors) {
+    ctx.font = '20px serif';
+    ctx.fillText('✂️', owl.x - 10, owl.y - 38);
+  }
 
   ctx.font = '40px serif';
   ctx.fillText('🦉', owl.x, owl.y);
 
   ctx.fillStyle = '#fff';
-  ctx.font = '15px sans-serif';
+  ctx.font = '14px sans-serif';
   ctx.textAlign = 'left';
-  ctx.fillText('🐭x' + caughtMice + ' 🎒x' + inventory + ' 🐦x' + caughtBirds + ' 🧁x' + cakes + ' 🪙' + coins, 12, 24);
+  ctx.fillText('🐭x' + caughtMice + ' 🎒x' + inventory + ' 🐦x' + caughtBirds + ' 🧁x' + cakes + ' 🍒x' + cherries + ' 🪙' + coins, 12, 24);
 
   ctx.fillStyle = '#fff';
   ctx.font = '12px sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText('v0.4', canvas.width - 10, 50);
+  ctx.fillText('v0.5', canvas.width - 10, 50);
 
   drawButton();
 
