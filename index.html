@@ -27,11 +27,24 @@ let cookTimer = 0;
 let customer = null, baker = null;
 let targetX = owl.x, targetY = owl.y;
 let sellMessage = '', buyMessage = '';
+let map = 'land';
 
 const house = { x: 0, y: 0, w: 150, h: 130 };
 const pan = { x: 0, y: 0 };
 const shop = { x: 30, y: 0, w: 150, h: 140 };
 const cakeShop = { x: 0, y: 40, w: 150, h: 140 };
+
+const clouds = Array.from({ length: 12 }, () => ({
+  x: Math.random() * 2000 - 200,
+  y: 50 + Math.random() * (600 - 100),
+  speed: 0.2 + Math.random() * 0.4,
+  size: 20 + Math.random() * 25
+}));
+const stars = Array.from({ length: 60 }, () => ({
+  x: Math.random() * 2000,
+  y: Math.random() * 600,
+  size: 1 + Math.random() * 2
+}));
 
 function reposition() {
   house.x = Math.max(canvas.width - 170, 20);
@@ -52,12 +65,30 @@ function scatterGrass() {
 }
 scatterGrass();
 
+function btnRect() {
+  const w = 80, h = 36;
+  return { x: canvas.width - w - 10, y: 8, w, h };
+}
+
+function handlePointer(clientX, clientY) {
+  const br = btnRect();
+  if (clientX >= br.x && clientX <= br.x + br.w && clientY >= br.y && clientY <= br.y + br.h) {
+    map = map === 'land' ? 'sky' : 'land';
+    return true;
+  }
+  return false;
+}
+
 function setTarget(e) {
   const rect = canvas.getBoundingClientRect();
   const cx = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
   const cy = e.clientY !== undefined ? e.clientY : e.touches[0].clientY;
-  targetX = cx - rect.left;
-  targetY = cy - rect.top;
+  const px = cx - rect.left;
+  const py = cy - rect.top;
+  if (!handlePointer(px, py)) {
+    targetX = px;
+    targetY = py;
+  }
 }
 canvas.addEventListener('mousemove', setTarget);
 canvas.addEventListener('touchstart', e => { e.preventDefault(); setTarget(e); }, { passive: false });
@@ -86,76 +117,82 @@ function update() {
     owl.y += (targetY - owl.y) / d * 3;
   }
 
-  for (const m of mice) {
-    if (dist(owl, m) < 150) {
-      const d2 = dist(owl, m);
-      m.x += (m.x - owl.x) / d2 * 3;
-      m.y += (m.y - owl.y) / d2 * 3;
-    } else {
-      m.x += (Math.random() - 0.5) * 2;
-      m.y += (Math.random() - 0.5) * 2;
+  if (map === 'land') {
+    for (const m of mice) {
+      if (dist(owl, m) < 150) {
+        const d2 = dist(owl, m);
+        m.x += (m.x - owl.x) / d2 * 3;
+        m.y += (m.y - owl.y) / d2 * 3;
+      } else {
+        m.x += (Math.random() - 0.5) * 2;
+        m.y += (Math.random() - 0.5) * 2;
+      }
+      m.x = Math.max(0, Math.min(canvas.width, m.x));
+      m.y = Math.max(0, Math.min(canvas.height, m.y));
     }
-    m.x = Math.max(0, Math.min(canvas.width, m.x));
-    m.y = Math.max(0, Math.min(canvas.height, m.y));
-  }
 
-  for (let i = mice.length - 1; i >= 0; i--) {
-    if (dist(owl, mice[i]) < 30) {
-      caught++;
-      mice.splice(i, 1);
+    for (let i = mice.length - 1; i >= 0; i--) {
+      if (dist(owl, mice[i]) < 30) {
+        caught++;
+        mice.splice(i, 1);
+      }
     }
-  }
-  if (mice.length < 5) {
-    if (mice.length === 0 || Math.random() < 0.003) mice.push(spawnMouse());
-  }
+    if (mice.length < 5) {
+      if (mice.length === 0 || Math.random() < 0.003) mice.push(spawnMouse());
+    }
 
-  const atPan = dist(owl, pan) < 55;
-  if (atPan && caught > 0) {
-    cookTimer += 1 / 60;
-    if (cookTimer >= 1) { cookTimer = 0; caught--; inventory++; }
-  } else cookTimer = 0;
+    const atPan = dist(owl, pan) < 55;
+    if (atPan && caught > 0) {
+      cookTimer += 1 / 60;
+      if (cookTimer >= 1) { cookTimer = 0; caught--; inventory++; }
+    } else cookTimer = 0;
 
-  // Owl shop: sells mice (inventory) and cakes
-  const atShop = dist(owl, { x: shop.x + shop.w / 2, y: shop.y + shop.h / 2 }) < 80;
-  if (atShop && (inventory > 0 || cakes > 0) && !customer) {
-    customer = { x: shop.x + shop.w / 2, y: shop.y - 30, progress: 0, timer: 0, buying: null };
-    if (inventory > 0) customer.buying = 'mouse';
-    else customer.buying = 'cake';
-  }
-  if (customer) {
-    customer.progress += 0.02;
-    customer.y = shop.y - 30 + customer.progress * 40;
-    if (customer.progress >= 1) {
-      customer.timer += 1 / 60;
-      if (customer.timer >= 1) {
-        if (customer.buying === 'mouse') {
-          inventory--; coins++;
-          sellMessage = '+1 🪙';
-        } else {
-          cakes--; coins += 4;
-          sellMessage = '+4 🪙';
+    const atShop = dist(owl, { x: shop.x + shop.w / 2, y: shop.y + shop.h / 2 }) < 80;
+    if (atShop && (inventory > 0 || cakes > 0) && !customer) {
+      customer = { x: shop.x + shop.w / 2, y: shop.y - 30, progress: 0, timer: 0, buying: null };
+      if (inventory > 0) customer.buying = 'mouse';
+      else customer.buying = 'cake';
+    }
+    if (customer) {
+      customer.progress += 0.02;
+      customer.y = shop.y - 30 + customer.progress * 40;
+      if (customer.progress >= 1) {
+        customer.timer += 1 / 60;
+        if (customer.timer >= 1) {
+          if (customer.buying === 'mouse') {
+            inventory--; coins++;
+            sellMessage = '+1 🪙';
+          } else {
+            cakes--; coins += 4;
+            sellMessage = '+4 🪙';
+          }
+          setTimeout(() => sellMessage = '', 1200);
+          customer = null;
         }
-        setTimeout(() => sellMessage = '', 1200);
-        customer = null;
       }
     }
-  }
 
-  // Cake shop: buy cake for 3 coins
-  const atCake = dist(owl, { x: cakeShop.x + cakeShop.w / 2, y: cakeShop.y + cakeShop.h / 2 }) < 80;
-  if (atCake && coins >= 3 && !baker) {
-    baker = { x: cakeShop.x + cakeShop.w / 2, y: cakeShop.y - 30, progress: 0, timer: 0 };
-  }
-  if (baker) {
-    baker.progress += 0.02;
-    baker.y = cakeShop.y - 30 + baker.progress * 40;
-    if (baker.progress >= 1) {
-      baker.timer += 1 / 60;
-      if (baker.timer >= 1) {
-        coins -= 3; cakes++; buyMessage = '+1 🧁';
-        setTimeout(() => buyMessage = '', 1200);
-        baker = null;
+    const atCake = dist(owl, { x: cakeShop.x + cakeShop.w / 2, y: cakeShop.y + cakeShop.h / 2 }) < 80;
+    if (atCake && coins >= 3 && !baker) {
+      baker = { x: cakeShop.x + cakeShop.w / 2, y: cakeShop.y - 30, progress: 0, timer: 0 };
+    }
+    if (baker) {
+      baker.progress += 0.02;
+      baker.y = cakeShop.y - 30 + baker.progress * 40;
+      if (baker.progress >= 1) {
+        baker.timer += 1 / 60;
+        if (baker.timer >= 1) {
+          coins -= 3; cakes++; buyMessage = '+1 🧁';
+          setTimeout(() => buyMessage = '', 1200);
+          baker = null;
+        }
       }
+    }
+  } else {
+    // Sky update: clouds drift
+    for (const c of clouds) {
+      c.x += c.speed;
+      if (c.x > canvas.width + 100) c.x = -150;
     }
   }
 }
@@ -298,18 +335,68 @@ function drawCakeShop(x, y, w, h) {
   ctx.fillText('x ' + cakes, x + w / 2 + 20, y + h / 2 + 6);
 }
 
-function draw() {
-  ctx.fillStyle = '#4CAF50';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.font = '18px serif';
+function drawButton() {
+  const br = btnRect();
+  const label = map === 'land' ? 'Fly 🦅' : 'Land 🏠';
+  ctx.fillStyle = map === 'land' ? '#4169E1' : '#8B4513';
+  ctx.beginPath();
+  ctx.roundRect(br.x, br.y, br.w, br.h, 8);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.font = 'bold 14px sans-serif';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  for (const g of grass) ctx.fillText('🌿', g.x, g.y);
+  ctx.fillText(label, br.x + br.w / 2, br.y + br.h / 2);
+}
 
-  drawCakeShop(cakeShop.x, cakeShop.y, cakeShop.w, cakeShop.h);
-  drawShop(shop.x, shop.y, shop.w, shop.h);
-  drawHouse(house.x, house.y, house.w, house.h);
-  drawPan(pan.x, pan.y);
+function drawSky() {
+  // Gradient sky
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, '#0B0B2B');
+  grad.addColorStop(0.4, '#1B1B4B');
+  grad.addColorStop(0.7, '#3B3B7B');
+  grad.addColorStop(1, '#6B6BAB');
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Stars
+  ctx.fillStyle = '#FFF';
+  for (const s of stars) {
+    const sx = ((s.x + performance.now() * 0.005) % (canvas.width + 50)) - 25;
+    ctx.beginPath();
+    ctx.arc(sx, s.y, s.size, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // Clouds
+  ctx.font = '42px serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const c of clouds) {
+    ctx.fillText('☁️', c.x, c.y);
+  }
+
+  // Moon
+  ctx.font = '50px serif';
+  ctx.fillText('🌙', canvas.width - 80, 70);
+}
+
+function draw() {
+  if (map === 'land') {
+    ctx.fillStyle = '#4CAF50';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.font = '18px serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    for (const g of grass) ctx.fillText('🌿', g.x, g.y);
+
+    drawCakeShop(cakeShop.x, cakeShop.y, cakeShop.w, cakeShop.h);
+    drawShop(shop.x, shop.y, shop.w, shop.h);
+    drawHouse(house.x, house.y, house.w, house.h);
+    drawPan(pan.x, pan.y);
+  } else {
+    drawSky();
+  }
 
   if (caught > 0) {
     ctx.font = '16px serif';
@@ -334,7 +421,12 @@ function draw() {
   }
 
   ctx.font = '28px serif';
-  for (const m of mice) ctx.fillText('🐭', m.x, m.y);
+  if (map === 'land') {
+    for (const m of mice) ctx.fillText('🐭', m.x, m.y);
+  } else {
+    ctx.fillText('🦇', 100 + Math.sin(performance.now() * 0.001) * 80, 200 + Math.sin(performance.now() * 0.0015) * 60);
+    ctx.fillText('🦇', canvas.width - 120 + Math.sin(performance.now() * 0.0012) * 70, 150 + Math.cos(performance.now() * 0.001) * 50);
+  }
 
   ctx.font = '40px serif';
   ctx.fillText('🦉', owl.x, owl.y);
@@ -347,7 +439,9 @@ function draw() {
   ctx.fillStyle = '#fff';
   ctx.font = '12px sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText('v0.2', canvas.width - 10, 20);
+  ctx.fillText('v0.3', canvas.width - 10, 50);
+
+  drawButton();
 
   if (sellMessage) {
     ctx.fillStyle = '#FFD700';
