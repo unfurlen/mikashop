@@ -70,29 +70,25 @@ function btnRect() {
   return { x: canvas.width - w - 10, y: 8, w, h };
 }
 
-function handlePointer(clientX, clientY) {
-  const br = btnRect();
-  if (clientX >= br.x && clientX <= br.x + br.w && clientY >= br.y && clientY <= br.y + br.h) {
-    map = map === 'land' ? 'sky' : 'land';
-    return true;
-  }
-  return false;
-}
-
-function setTarget(e) {
+function getPos(e) {
   const rect = canvas.getBoundingClientRect();
   const cx = e.clientX !== undefined ? e.clientX : e.touches[0].clientX;
   const cy = e.clientY !== undefined ? e.clientY : e.touches[0].clientY;
-  const px = cx - rect.left;
-  const py = cy - rect.top;
-  if (!handlePointer(px, py)) {
-    targetX = px;
-    targetY = py;
+  return { x: cx - rect.left, y: cy - rect.top };
+}
+
+function handleClick(e) {
+  const p = getPos(e);
+  const br = btnRect();
+  if (p.x >= br.x && p.x <= br.x + br.w && p.y >= br.y && p.y <= br.y + br.h) {
+    map = map === 'land' ? 'sky' : 'land';
   }
 }
-canvas.addEventListener('mousemove', setTarget);
-canvas.addEventListener('touchstart', e => { e.preventDefault(); setTarget(e); }, { passive: false });
-canvas.addEventListener('touchmove', e => { e.preventDefault(); setTarget(e); }, { passive: false });
+
+canvas.addEventListener('mousemove', e => { targetX = getPos(e).x; targetY = getPos(e).y; });
+canvas.addEventListener('click', handleClick);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); const p = getPos(e); handleClick(e); targetX = p.x; targetY = p.y; }, { passive: false });
+canvas.addEventListener('touchmove', e => { e.preventDefault(); const p = getPos(e); targetX = p.x; targetY = p.y; }, { passive: false });
 
 function dist(a, b) {
   return Math.hypot(a.x - b.x, a.y - b.y);
