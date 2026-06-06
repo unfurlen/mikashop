@@ -59,21 +59,44 @@ const stars = Array.from({ length: 60 }, () => ({
 
 function reposition() {
   recalcScale();
-  const sw = scale(1), sh = scale(1);
-  house.x = Math.max(canvas.width - scale(170), scale(20));
-  house.y = Math.max(canvas.height - scale(190), scale(20));
-  house.w = scale(150); house.h = scale(130);
+  const compact = canvas.width < 500;
+
+  if (compact) {
+    // Orchard: centered on screen
+    orchard.w = scale(160); orchard.h = scale(110);
+    orchard.x = canvas.width / 2 - orchard.w / 2;
+    orchard.y = canvas.height / 2 - orchard.h / 2;
+
+    // Shop: bottom-left, smaller
+    shop.w = scale(100); shop.h = scale(100);
+    shop.x = scale(8);
+    shop.y = canvas.height - shop.h - scale(8);
+
+    // House: top-right, smaller
+    house.w = scale(100); house.h = scale(90);
+    house.x = canvas.width - house.w - scale(8);
+    house.y = scale(8);
+
+    // Cake shop: top-left, smaller
+    cakeShop.w = scale(100); cakeShop.h = scale(100);
+    cakeShop.x = scale(8);
+    cakeShop.y = scale(8);
+  } else {
+    house.x = Math.max(canvas.width - scale(170), scale(20));
+    house.y = Math.max(canvas.height - scale(190), scale(20));
+    house.w = scale(150); house.h = scale(130);
+    shop.y = Math.max(canvas.height - scale(180), scale(20));
+    shop.w = scale(150); shop.h = scale(140);
+    shop.x = scale(30);
+    cakeShop.x = Math.min(Math.max(canvas.width / 2 - scale(75), scale(200)), 900);
+    cakeShop.w = scale(150); cakeShop.h = scale(140);
+    cakeShop.y = scale(40);
+    orchard.w = scale(200); orchard.h = scale(130);
+    orchard.x = Math.max(canvas.width / 2 - scale(100), scale(10));
+    orchard.y = Math.max(canvas.height - scale(150), scale(20));
+  }
   pan.x = house.x + house.w / 2;
   pan.y = house.y + house.h - scale(15);
-  shop.y = Math.max(canvas.height - scale(180), scale(20));
-  shop.w = scale(150); shop.h = scale(140);
-  shop.x = scale(30);
-  cakeShop.x = Math.min(Math.max(canvas.width / 2 - scale(75), scale(200)), 900);
-  cakeShop.w = scale(150); cakeShop.h = scale(140);
-  cakeShop.y = scale(40);
-  orchard.w = scale(200); orchard.h = scale(130);
-  orchard.x = Math.max(canvas.width / 2 - scale(100), scale(10));
-  orchard.y = Math.max(canvas.height - scale(150), scale(20));
   table.x = orchard.x + orchard.w / 2 - scale(15);
   table.y = orchard.y + orchard.h - scale(55);
 }
