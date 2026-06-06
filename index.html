@@ -72,14 +72,14 @@ function reposition() {
     shop.x = scale(8);
     shop.y = canvas.height - shop.h - scale(8);
 
-    // House: top-right, smaller
+    // House: bottom-right, smaller
     house.w = scale(100); house.h = scale(90);
     house.x = canvas.width - house.w - scale(8);
-    house.y = scale(8);
+    house.y = canvas.height - house.h - scale(8);
 
-    // Cake shop: top-left, smaller
+    // Cake shop: top-middle, smaller
     cakeShop.w = scale(100); cakeShop.h = scale(100);
-    cakeShop.x = scale(8);
+    cakeShop.x = canvas.width / 2 - cakeShop.w / 2;
     cakeShop.y = scale(8);
   } else {
     house.x = Math.max(canvas.width - scale(170), scale(20));
