@@ -560,7 +560,8 @@ function draw() {
   ctx.fillStyle = '#fff';
   ctx.font = scale(12) + 'px sans-serif';
   ctx.textAlign = 'right';
-  ctx.fillText('v0.7', canvas.width - scale(10), scale(50));
+  const mode = Math.min(window.innerWidth, window.innerHeight) < 600 ? 'compact' : 'wide';
+  ctx.fillText('v0.8 ' + mode, canvas.width - scale(10), scale(50));
 
   drawButton();
 
