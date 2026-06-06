@@ -4,7 +4,7 @@
 <title>Night Zelda</title>
 <style>
   body { margin: 0; overflow: hidden; background: #222; }
-  canvas { display: block; }
+  canvas { display: block; touch-action: none; }
 </style>
 </head>
 <body>
@@ -343,6 +343,11 @@ function draw() {
   ctx.font = '16px sans-serif';
   ctx.textAlign = 'left';
   ctx.fillText('🐭 x ' + caught + '  🎒 x ' + inventory + '  🧁 x ' + cakes + '  🪙 ' + coins, 12, 24);
+
+  ctx.fillStyle = '#fff';
+  ctx.font = '12px sans-serif';
+  ctx.textAlign = 'right';
+  ctx.fillText('v0.2', canvas.width - 10, 20);
 
   if (sellMessage) {
     ctx.fillStyle = '#FFD700';
