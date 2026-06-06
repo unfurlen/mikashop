@@ -37,13 +37,20 @@ const owl = { x: canvas.width / 2, y: canvas.height / 2 };
 const mice = [];
 const birds = [];
 const aliens = [];
-let caughtMice = 0, caughtBirds = 0, caughtAliens = 0, inventory = 0, coins = 0, cakes = 0, cherries = 0;
+const fish = [];
+let caughtMice = 0, caughtBirds = 0, caughtAliens = 0, caughtFish = 0, inventory = 0, coins = 0, cakes = 0, cherries = 0;
 let cookTimer = 0, cherryTimer = 0;
 let customer = null, baker = null;
 let targetX = owl.x, targetY = owl.y;
 let sellMessage = '', buyMessage = '';
 let map = 'land';
 let hasScissors = false;
+let costume = 'owl';
+const costumeBtns = [
+  { x: 0, y: 0, w: 0, h: 0, emoji: '🦉', key: 'owl' },
+  { x: 0, y: 0, w: 0, h: 0, emoji: '🐙', key: 'octopus' },
+  { x: 0, y: 0, w: 0, h: 0, emoji: '🐉', key: 'dragon' }
+];
 
 const house = { x: 0, y: 0, w: 150, h: 130 };
 const pan = { x: 0, y: 0 };
@@ -67,6 +74,12 @@ const spaceStars = Array.from({ length: 120 }, () => ({
   y: Math.random() * 600,
   size: 0.5 + Math.random() * 1.5,
   speed: 0.001 + Math.random() * 0.004
+}));
+const bubbles = Array.from({ length: 20 }, () => ({
+  x: Math.random() * canvas.width,
+  y: canvas.height + Math.random() * 100,
+  speed: 0.3 + Math.random() * 0.6,
+  size: 2 + Math.random() * 4
 }));
 
 function reposition() {
@@ -104,6 +117,10 @@ function reposition() {
   pan.y = house.y + house.h - scale(15);
   table.x = orchard.x + orchard.w / 2 - scale(15);
   table.y = orchard.y + orchard.h - scale(55);
+  const cbSize = scale(40);
+  const cbGap = scale(6);
+  const totalH = cbSize * 3 + cbGap * 2;
+  costumeBtns.forEach((b, i) => { b.w = cbSize; b.h = cbSize; b.x = scale(8); b.y = canvas.height / 2 - totalH / 2 + i * (cbSize + cbGap); });
 }
 reposition();
 
@@ -123,11 +140,15 @@ scatterGrass();
 
 function getButtons() {
   const bw = scale(80), bh = scale(36), gap = scale(8), rx = canvas.width - bw - scale(10), ry = scale(8);
-  if (map === 'land') return [{ label: 'Fly 🦅', x: rx, y: ry, w: bw, h: bh, action: 'sky' }];
+  if (map === 'land') return [
+    { label: 'Fly 🦅', x: rx, y: ry, w: bw, h: bh, action: 'sky' },
+    { label: 'Dive 🤿', x: rx, y: ry + bh + gap, w: bw, h: bh, action: 'underwater' }
+  ];
   if (map === 'sky') return [
     { label: 'Land 🏠', x: rx, y: ry, w: bw, h: bh, action: 'land' },
     { label: 'Space 🚀', x: rx, y: ry + bh + gap, w: bw, h: bh, action: 'space' }
   ];
+  if (map === 'underwater') return [{ label: 'Land 🏠', x: rx, y: ry, w: bw, h: bh, action: 'land' }];
   return [{ label: 'Sky ☁️', x: rx, y: ry, w: bw, h: bh, action: 'sky' }];
 }
 
@@ -140,6 +161,9 @@ function getPos(e) {
 
 function handleClick(e) {
   const p = getPos(e);
+  for (const cb of costumeBtns) {
+    if (p.x >= cb.x && p.x <= cb.x + cb.w && p.y >= cb.y && p.y <= cb.y + cb.h) { costume = cb.key; return; }
+  }
   for (const b of getButtons()) {
     if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) {
       map = b.action;
@@ -184,9 +208,19 @@ function spawnAlien() {
   };
 }
 
+function spawnFish() {
+  return {
+    x: 50 + Math.random() * (canvas.width - 100),
+    y: 50 + Math.random() * (canvas.height - 100),
+    angle: Math.random() * Math.PI * 2,
+    speed: 0.4 + Math.random() * 0.3
+  };
+}
+
 for (let i = 0; i < 5; i++) mice.push(spawnMouse());
 for (let i = 0; i < 4; i++) birds.push(spawnBird());
 for (let i = 0; i < 4; i++) aliens.push(spawnAlien());
+for (let i = 0; i < 4; i++) fish.push(spawnFish());
 
 function inOrchard(x, y) {
   return x >= orchard.x && x <= orchard.x + orchard.w && y >= orchard.y && y <= orchard.y + orchard.h;
@@ -234,11 +268,12 @@ function update() {
     } else cherryTimer = 0;
 
     const atShop = dist(owl, { x: shop.x + shop.w / 2, y: shop.y + shop.h / 2 }) < scale(80);
-    if (atShop && (inventory > 0 || cakes > 0 || caughtBirds > 0 || caughtAliens > 0 || cherries > 0) && !customer) {
+    if (atShop && (inventory > 0 || cakes > 0 || caughtBirds > 0 || caughtAliens > 0 || caughtFish > 0 || cherries > 0) && !customer) {
       customer = { x: shop.x + shop.w / 2, y: shop.y - scale(30), progress: 0, timer: 0, buying: null };
       if (inventory > 0) customer.buying = 'mouse';
       else if (caughtBirds > 0) customer.buying = 'bird';
       else if (caughtAliens > 0) customer.buying = 'alien';
+      else if (caughtFish > 0) customer.buying = 'fish';
       else if (cherries > 0) customer.buying = 'cherry';
       else customer.buying = 'cake';
     }
@@ -251,6 +286,7 @@ function update() {
           if (customer.buying === 'mouse') { inventory--; coins++; sellMessage = '+1 🪙'; }
           else if (customer.buying === 'bird') { caughtBirds--; coins += 2; sellMessage = '+2 🪙'; }
           else if (customer.buying === 'alien') { caughtAliens--; coins += 3; sellMessage = '+3 🪙'; }
+          else if (customer.buying === 'fish') { caughtFish--; coins += 2; sellMessage = '+2 🪙'; }
           else if (customer.buying === 'cherry') { cherries--; coins += 2; sellMessage = '+2 🪙'; }
           else { cakes--; coins += 4; sellMessage = '+4 🪙'; }
           setTimeout(() => sellMessage = '', 1200);
@@ -291,7 +327,23 @@ function update() {
     if (birds.length < 4) {
       if (birds.length === 0 || Math.random() < 0.003) birds.push(spawnBird());
     }
-  } else if (map === 'space') {
+    } else if (map === 'underwater') {
+    for (const b of bubbles) { b.y -= b.speed; if (b.y < -20) { b.y = canvas.height + 10; b.x = Math.random() * canvas.width; } }
+    for (const f of fish) {
+      f.angle += 0.01 + Math.random() * 0.01;
+      f.x += Math.cos(f.angle) * f.speed;
+      f.y += Math.sin(f.angle) * 0.6;
+      if (dist(owl, f) < scale(100)) { f.x += (f.x - owl.x) * 0.03; f.y += (f.y - owl.y) * 0.03; }
+      f.x = Math.max(0, Math.min(canvas.width, f.x));
+      f.y = Math.max(0, Math.min(canvas.height, f.y));
+    }
+    for (let i = fish.length - 1; i >= 0; i--) {
+      if (dist(owl, fish[i]) < scale(30)) { caughtFish++; fish.splice(i, 1); }
+    }
+    if (fish.length < 4) {
+      if (fish.length === 0 || Math.random() < 0.003) fish.push(spawnFish());
+    }
+    } else if (map === 'space') {
     for (const a of aliens) {
       a.phase += 0.015 * a.speed;
       a.x += Math.sin(a.phase) * 0.6;
@@ -346,13 +398,13 @@ function drawShop(x, y, w, h) {
   ctx.fillRect(x + scale(5), y + h - scale(35), w - scale(10), scale(28));
   ctx.fillStyle = '#FFD700';
   ctx.font = 'bold ' + scale(10) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.fillText('🐭1 🐦2 👾3 🍒2 🧁4', x + w / 2, y + scale(15));
+  ctx.fillText('🐭1 🐦2 👾3 🐟2 🍒2 🧁4', x + w / 2, y + scale(15));
   ctx.fillStyle = '#FFF8DC'; ctx.font = scale(12) + 'px sans-serif';
   ctx.fillText("OWL'S SHOP", x + w / 2, y - scale(40));
   if (customer) {
     ctx.font = scale(32) + 'px serif'; ctx.fillText('🧑', customer.x, customer.y);
     ctx.fillStyle = '#FFF'; ctx.font = scale(11) + 'px sans-serif';
-    const icons = { mouse: '🐭', bird: '🐦', alien: '👾', cherry: '🍒', cake: '🧁' };
+    const icons = { mouse: '🐭', bird: '🐦', alien: '👾', fish: '🐟', cherry: '🍒', cake: '🧁' };
     ctx.fillText(icons[customer.buying] || '?', customer.x + scale(22), customer.y - scale(18));
   }
   ctx.font = scale(22) + 'px serif'; ctx.fillText('🪙', x + w / 2, y + h / 2 + scale(5));
@@ -401,12 +453,18 @@ function drawOrchard(x, y, w, h) {
 
 function drawButtons() {
   for (const b of getButtons()) {
-    const colors = { land: '#8B4513', sky: '#4169E1', space: '#9932CC' };
+    const colors = { land: '#8B4513', sky: '#4169E1', space: '#9932CC', underwater: '#1A7A9A' };
     ctx.fillStyle = colors[b.action] || '#4169E1';
     ctx.beginPath(); ctx.roundRect(b.x, b.y, b.w, b.h, scale(8)); ctx.fill();
     ctx.fillStyle = '#fff';
     ctx.font = 'bold ' + scale(14) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(b.label, b.x + b.w / 2, b.y + b.h / 2);
+  }
+  for (const cb of costumeBtns) {
+    ctx.fillStyle = costume === cb.key ? '#2E8B57' : '#555';
+    ctx.beginPath(); ctx.roundRect(cb.x, cb.y, cb.w, cb.h, scale(8)); ctx.fill();
+    ctx.font = scale(20) + 'px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(cb.emoji, cb.x + cb.w / 2, cb.y + cb.h / 2 + scale(1));
   }
 }
 
@@ -444,6 +502,26 @@ function drawSpace() {
   for (const a of aliens) ctx.fillText('👾', a.x, a.y);
 }
 
+function drawUnderwater() {
+  const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+  grad.addColorStop(0, '#0A3D5C'); grad.addColorStop(0.4, '#0F5B7A'); grad.addColorStop(0.7, '#1A7A9A'); grad.addColorStop(1, '#0D2B3B');
+  ctx.fillStyle = grad; ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#2D8A4E';
+  for (let x = 0; x < canvas.width; x += scale(24)) {
+    const h = scale(20 + Math.sin(x * 0.05 + performance.now() * 0.002) * 10);
+    ctx.fillRect(x, canvas.height - h, scale(16), h);
+    ctx.fillRect(x + scale(8), canvas.height - h + scale(8), scale(8), h - scale(8));
+  }
+  ctx.font = scale(20) + 'px serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  for (const b of bubbles) {
+    ctx.globalAlpha = 0.3 + Math.sin(performance.now() * 0.003 + b.x) * 0.15;
+    ctx.beginPath(); ctx.arc(b.x, b.y, b.size, 0, Math.PI * 2); ctx.fillStyle = '#B0E0FF'; ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+  ctx.font = scale(28) + 'px serif';
+  for (const f of fish) ctx.fillText('🐟', f.x, f.y);
+}
+
 function draw() {
   if (map === 'land') {
     ctx.fillStyle = '#4CAF50'; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -458,6 +536,8 @@ function draw() {
     for (const m of mice) ctx.fillText('🐭', m.x, m.y);
   } else if (map === 'sky') {
     drawSky();
+  } else if (map === 'underwater') {
+    drawUnderwater();
   } else {
     drawSpace();
   }
@@ -486,6 +566,11 @@ function draw() {
     ctx.fillStyle = '#fff'; ctx.font = scale(12) + 'px sans-serif';
     ctx.fillText('x' + caughtAliens, owl.x + scale(38), owl.y - scale(17) + badgeY);
   }
+  if (caughtFish > 0) {
+    ctx.font = scale(16) + 'px serif'; ctx.fillText('🐟', owl.x + scale(25), owl.y - scale(15) + badgeY);
+    ctx.fillStyle = '#fff'; ctx.font = scale(12) + 'px sans-serif';
+    ctx.fillText('x' + caughtFish, owl.x + scale(38), owl.y - scale(17) + badgeY);
+  }
   if (cakes > 0) {
     ctx.font = scale(16) + 'px serif'; ctx.fillText('🧁', owl.x - scale(30), owl.y + scale(18));
     ctx.fillStyle = '#fff'; ctx.font = scale(11) + 'px sans-serif';
@@ -498,14 +583,15 @@ function draw() {
   }
   if (hasScissors) { ctx.font = scale(20) + 'px serif'; ctx.fillText('✂️', owl.x - scale(10), owl.y - scale(38)); }
 
-  ctx.font = scale(40) + 'px serif'; ctx.fillText('🦉', owl.x, owl.y);
+  const costumeEmojis = { owl: '🦉', octopus: '🐙', dragon: '🐉' };
+ctx.font = scale(40) + 'px serif'; ctx.fillText(costumeEmojis[costume] || '🦉', owl.x, owl.y);
 
   ctx.fillStyle = '#fff'; ctx.font = scale(14) + 'px sans-serif'; ctx.textAlign = 'left';
-  ctx.fillText('🐭x' + caughtMice + ' 🎒x' + inventory + ' 🐦x' + caughtBirds + ' 👾x' + caughtAliens + ' 🧁x' + cakes + ' 🍒x' + cherries + ' 🪙' + coins, scale(12), scale(24));
+  ctx.fillText('🐭x' + caughtMice + ' 🎒x' + inventory + ' 🐦x' + caughtBirds + ' 👾x' + caughtAliens + ' 🐟x' + caughtFish + ' 🧁x' + cakes + ' 🍒x' + cherries + ' 🪙' + coins, scale(12), scale(24));
 
   ctx.fillStyle = '#fff'; ctx.font = scale(12) + 'px sans-serif'; ctx.textAlign = 'right';
   const mode = Math.min(window.innerWidth, window.innerHeight) < 600 ? 'compact' : 'wide';
-  ctx.fillText('v0.9 ' + mode, canvas.width - scale(10), scale(50));
+  ctx.fillText('v1.0 ' + mode, canvas.width - scale(10), scale(50));
 
   drawButtons();
 
